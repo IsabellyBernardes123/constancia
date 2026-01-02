@@ -1,10 +1,20 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
 
-// Initialize the GoogleGenAI client with the API key from environment variables.
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+// Inicialização segura para evitar erro de "process is not defined" no carregamento inicial
+const getApiKey = () => {
+  try {
+    return process.env.API_KEY || "";
+  } catch (e) {
+    return "";
+  }
+};
 
 export const getHabitSuggestions = async (currentHabits: string[]) => {
+  const apiKey = getApiKey();
+  if (!apiKey) return [];
+
+  const ai = new GoogleGenAI({ apiKey });
   const prompt = currentHabits.length > 0 
     ? `O usuário do aplicativo Constância+ já está rastreando estas metas: ${currentHabits.join(', ')}. Sugira 3 novas metas saudáveis e motivadoras para o mês.`
     : "Sugira 5 metas de hábitos saudáveis e fáceis de começar para uma pessoa que quer usar o Constância+ para melhorar sua rotina mensal.";
@@ -38,6 +48,10 @@ export const getHabitSuggestions = async (currentHabits: string[]) => {
 };
 
 export const getMotivationMessage = async (habitName: string) => {
+  const apiKey = getApiKey();
+  if (!apiKey) return "Continue firme! Cada dia conta.";
+
+  const ai = new GoogleGenAI({ apiKey });
   try {
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
