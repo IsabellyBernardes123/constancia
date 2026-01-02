@@ -4,17 +4,19 @@ import { GoogleGenAI, Type } from "@google/genai";
 export const getHabitSuggestions = async (currentHabits: string[]) => {
   try {
     const apiKey = process.env.API_KEY;
-    if (!apiKey) {
-      console.error("ERRO: API_KEY não encontrada no ambiente.");
-      return [];
+    
+    if (!apiKey || apiKey === "undefined" || apiKey === "") {
+      throw new Error("MISSING_API_KEY");
     }
 
     const ai = new GoogleGenAI({ apiKey });
     
-    // Prompt otimizado para ser curto e preciso
-    const prompt = `Atue como um coach de bem-estar. O usuário monitora estas metas: ${currentHabits.length > 0 ? currentHabits.join(', ') : 'nenhuma'}.
-    Sugira 5 novas metas saudáveis para o mês. 
-    Retorne APENAS um JSON no formato: [{"name": "nome", "description": "como fazer", "reason": "benefício"}].`;
+    // Prompt mais rigoroso para garantir retorno de JSON válido
+    const prompt = `Você é um assistente de produtividade. 
+    O usuário já tem estas metas: ${currentHabits.length > 0 ? currentHabits.join(', ') : 'nenhuma'}.
+    Sugira exatamente 5 metas para o próximo mês que ajudem no bem-estar.
+    Retorne apenas o JSON puro, sem markdown, seguindo este esquema exato:
+    [{"name": "título curto", "description": "descrição breve", "reason": "por que fazer"}]`;
 
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
@@ -36,38 +38,42 @@ export const getHabitSuggestions = async (currentHabits: string[]) => {
       }
     });
 
-    const result = response.text;
-    if (!result) {
-      console.warn("IA retornou texto vazio.");
-      return [];
+    const text = response.text;
+    if (!text) throw new Error("EMPTY_RESPONSE");
+
+    // Tenta limpar o JSON caso venha com lixo
+    let cleanJson = text.trim();
+    if (cleanJson.includes("[") && cleanJson.includes("]")) {
+      const start = cleanJson.indexOf("[");
+      const end = cleanJson.lastIndexOf("]") + 1;
+      cleanJson = cleanJson.substring(start, end);
     }
 
-    // Limpeza de segurança caso a IA retorne markdown
-    let cleanedJson = result.trim();
-    if (cleanedJson.startsWith("```")) {
-      cleanedJson = cleanedJson.replace(/^```json\n?/, "").replace(/\n?```$/, "");
+    const parsed = JSON.parse(cleanJson);
+    if (!Array.isArray(parsed)) return [];
+    
+    return parsed;
+  } catch (error: any) {
+    console.error("Erro no GeminiService:", error);
+    if (error.message === "MISSING_API_KEY") {
+      throw new Error("A chave de API não foi configurada no Vercel. Adicione API_KEY nas Environment Variables.");
     }
-
-    return JSON.parse(cleanedJson);
-  } catch (error) {
-    console.error("Erro crítico na integração Gemini (Sugestões):", error);
-    throw error; // Lança para o App.tsx tratar visualmente
+    throw error;
   }
 };
 
 export const getMotivationMessage = async (habitName: string) => {
   try {
     const apiKey = process.env.API_KEY;
-    if (!apiKey) return "Continue firme!";
+    if (!apiKey) return "Continue firme no seu propósito!";
 
     const ai = new GoogleGenAI({ apiKey });
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
-      contents: `O usuário completou a meta "${habitName}". Dê uma frase de incentivo de até 10 palavras em português.`,
+      contents: `O usuário completou a meta "${habitName}". Escreva uma frase de incentivo muito curta (máximo 8 palavras).`,
     });
-    return response.text || "Parabéns por completar sua meta!";
+    return response.text || "Excelente progresso hoje!";
   } catch (error) {
-    console.error("Erro Gemini (Motivação):", error);
-    return "Excelente trabalho! Continue assim.";
+    return "Um passo de cada vez leva ao topo!";
   }
 };
