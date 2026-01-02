@@ -24,7 +24,15 @@ import {
   Loader2,
   Archive,
   Info,
-  CalendarDays
+  CalendarDays,
+  Droplets,
+  Dumbbell,
+  BookOpen,
+  Moon,
+  Apple,
+  Zap,
+  Smile,
+  Flame
 } from 'lucide-react';
 import { 
   format, 
@@ -43,8 +51,8 @@ import {
 } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { createClient } from '@supabase/supabase-js';
-import { Habit, ViewType } from './types';
-import { getHabitSuggestions, getMotivationMessage } from './services/geminiService';
+import { Habit, ViewType } from './types.ts';
+import { getHabitSuggestions, getMotivationMessage } from './services/geminiService.ts';
 
 // Supabase Config
 const supabase = createClient(
@@ -69,14 +77,14 @@ const Logo = ({ size = 32 }: { size?: number }) => (
 const AVAILABLE_ICONS = [
   { name: 'CheckCircle2', component: CheckCircle2 },
   { name: 'Target', component: Target },
-  { name: 'Droplets', component: LucideIcons.Droplets },
-  { name: 'Dumbbell', component: LucideIcons.Dumbbell },
-  { name: 'BookOpen', component: LucideIcons.BookOpen },
-  { name: 'Moon', component: LucideIcons.Moon },
-  { name: 'Apple', component: LucideIcons.Apple },
-  { name: 'Zap', component: LucideIcons.Zap },
-  { name: 'Smile', component: LucideIcons.Smile },
-  { name: 'Flame', component: LucideIcons.Flame },
+  { name: 'Droplets', component: Droplets },
+  { name: 'Dumbbell', component: Dumbbell },
+  { name: 'BookOpen', component: BookOpen },
+  { name: 'Moon', component: Moon },
+  { name: 'Apple', component: Apple },
+  { name: 'Zap', component: Zap },
+  { name: 'Smile', component: Smile },
+  { name: 'Flame', component: Flame },
 ];
 
 const HabitIcon = ({ name, size = 22, ...props }: { name?: string, size?: number, [key: string]: any }) => {
@@ -129,13 +137,20 @@ const App: React.FC = () => {
   const [aiSuggestions, setAiSuggestions] = useState<any[]>([]);
   const [motivation, setMotivation] = useState<string | null>(null);
 
-  // Inicializar Sessão
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      if (session) fetchProfile(session.user.id);
-      setLoading(false);
-    });
+    const initSession = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        setSession(session);
+        if (session) fetchProfile(session.user.id);
+      } catch (err) {
+        console.error("Auth init error:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    initSession();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
@@ -162,11 +177,10 @@ const App: React.FC = () => {
         setUserProfile(data);
       }
     } catch (e) {
-      console.warn("Perfil ainda não disponível no banco public.");
+      console.warn("Public profile not yet available.");
     }
   };
 
-  // Carregar dados quando logado
   useEffect(() => {
     if (session?.user) {
       loadHabits();
@@ -175,28 +189,31 @@ const App: React.FC = () => {
 
   const loadHabits = async () => {
     if (!session?.user) return;
-    
-    const { data: habitsData, error: habitsError } = await supabase
-      .from('habits')
-      .select('*')
-      .order('created_at', { ascending: false });
+    try {
+      const { data: habitsData, error: habitsError } = await supabase
+        .from('habits')
+        .select('*')
+        .order('created_at', { ascending: false });
 
-    if (habitsError) return;
+      if (habitsError) throw habitsError;
 
-    const { data: completionsData, error: compError } = await supabase
-      .from('completions')
-      .select('habit_id, completed_date');
+      const { data: completionsData, error: compError } = await supabase
+        .from('completions')
+        .select('habit_id, completed_date');
 
-    if (compError) return;
+      if (compError) throw compError;
 
-    const habitsWithCompletions = habitsData.map((h: any) => ({
-      ...h,
-      completions: completionsData
-        .filter((c: any) => c.habit_id === h.id)
-        .map((c: any) => c.completed_date)
-    }));
+      const habitsWithCompletions = (habitsData || []).map((h: any) => ({
+        ...h,
+        completions: (completionsData || [])
+          .filter((c: any) => c.habit_id === h.id)
+          .map((c: any) => c.completed_date)
+      }));
 
-    setHabits(habitsWithCompletions);
+      setHabits(habitsWithCompletions);
+    } catch (err) {
+      console.error("Load habits error:", err);
+    }
   };
 
   const handleAuth = async (e: React.FormEvent) => {
@@ -287,7 +304,6 @@ const App: React.FC = () => {
       const { error } = await supabase.from('completions').insert([{ 
         habit_id: habitId, user_id: session.user.id, completed_date: dateStr 
       }]);
-      // Só celebra se for o dia de hoje
       if (!error && isToday(date)) triggerCelebration(habit.name);
     }
     await loadHabits();
@@ -365,15 +381,20 @@ const App: React.FC = () => {
   const activeHabitsToday = useMemo(() => habits.filter(h => !h.is_archived && isHabitActiveOnDate(h, new Date())), [habits]);
   const dailyProgress = useMemo(() => activeHabitsToday.length === 0 ? 0 : Math.round((activeHabitsToday.filter(h => h.completions.includes(todayStr)).length / activeHabitsToday.length) * 100), [activeHabitsToday, todayStr]);
 
-  // Lógica de saudação corrigida
   const greetingName = useMemo(() => {
     if (userProfile?.name) return userProfile.name;
-    if (session?.user?.user_metadata?.full_name) return session.user.user_metadata.full_name;
+    const metadataName = session?.user?.user_metadata?.full_name || session?.user?.user_metadata?.name;
+    if (metadataName) return metadataName;
     return session?.user?.email?.split('@')[0] || 'usuário';
   }, [userProfile, session]);
 
   if (loading) {
-    return <div className="min-h-screen bg-slate-50 flex items-center justify-center"><Loader2 className="animate-spin text-blue-600" size={40} /></div>;
+    return (
+      <div className="min-h-screen bg-white flex flex-col items-center justify-center">
+        <Loader2 className="animate-spin text-blue-600 mb-4" size={48} />
+        <p className="text-slate-400 font-bold text-xs uppercase tracking-widest">Carregando sua rotina...</p>
+      </div>
+    );
   }
 
   if (!session) {
@@ -391,7 +412,7 @@ const App: React.FC = () => {
             {authMode === 'signup' && (
               <div className="relative">
                 <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                <input type="text" required placeholder="Seu Nome" className="w-full pl-11 pr-4 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:border-blue-500 outline-none text-sm font-bold" value={authName} onChange={e => setAuthName(e.target.value)} />
+                <input type="text" required placeholder="Seu Nome Completo" className="w-full pl-11 pr-4 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:border-blue-500 outline-none text-sm font-bold" value={authName} onChange={e => setAuthName(e.target.value)} />
               </div>
             )}
             <div className="relative">
@@ -515,7 +536,6 @@ const App: React.FC = () => {
         <button onClick={() => setView('ai')} className={`flex-1 flex flex-col items-center gap-1.5 ${view === 'ai' ? 'text-blue-600' : 'text-slate-300'}`}><Sparkles size={22} /><span className="text-[8px] font-black">DICAS</span></button>
       </nav>
 
-      {/* Modal de Detalhes do Dia (Calendário) */}
       {selectedDayDetail && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center bg-slate-900/60 backdrop-blur-md px-6 animate-in fade-in duration-200">
           <div className="w-full max-w-[360px] bg-white rounded-[32px] p-6 shadow-2xl animate-in zoom-in-95 slide-in-from-bottom-8 duration-300">
