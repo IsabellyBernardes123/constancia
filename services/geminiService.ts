@@ -1,25 +1,13 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
 
-// Inicialização segura para evitar erro de "process is not defined" no carregamento inicial
-const getApiKey = () => {
-  try {
-    return process.env.API_KEY || "";
-  } catch (e) {
-    return "";
-  }
-};
-
 export const getHabitSuggestions = async (currentHabits: string[]) => {
-  const apiKey = getApiKey();
-  if (!apiKey) return [];
-
-  const ai = new GoogleGenAI({ apiKey });
-  const prompt = currentHabits.length > 0 
-    ? `O usuário do aplicativo Constância+ já está rastreando estas metas: ${currentHabits.join(', ')}. Sugira 3 novas metas saudáveis e motivadoras para o mês.`
-    : "Sugira 5 metas de hábitos saudáveis e fáceis de começar para uma pessoa que quer usar o Constância+ para melhorar sua rotina mensal.";
-
   try {
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const prompt = currentHabits.length > 0 
+      ? `O usuário do aplicativo Constância+ já está rastreando estas metas: ${currentHabits.join(', ')}. Sugira 3 novas metas saudáveis e motivadoras para o mês.`
+      : "Sugira 5 metas de hábitos saudáveis e fáceis de começar para uma pessoa que quer usar o Constância+ para melhorar sua rotina mensal.";
+
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: prompt,
@@ -40,25 +28,32 @@ export const getHabitSuggestions = async (currentHabits: string[]) => {
       }
     });
 
-    return JSON.parse(response.text || '[]');
+    const text = response.text;
+    if (!text) return [];
+
+    // Limpeza de possíveis blocos de código markdown que a IA possa retornar
+    let jsonStr = text.trim();
+    if (jsonStr.startsWith("```")) {
+      jsonStr = jsonStr.replace(/^```json\n?/, "").replace(/\n?```$/, "");
+    }
+
+    return JSON.parse(jsonStr);
   } catch (error) {
-    console.error("Erro ao buscar sugestões:", error);
+    console.error("Erro na integração com Gemini (Sugestões):", error);
     return [];
   }
 };
 
 export const getMotivationMessage = async (habitName: string) => {
-  const apiKey = getApiKey();
-  if (!apiKey) return "Continue firme! Cada dia conta.";
-
-  const ai = new GoogleGenAI({ apiKey });
   try {
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: `O usuário do Constância+ completou uma tarefa hoje. Dê uma frase curta, motivadora e inspiradora em português para alguém que quer manter a meta de "${habitName}".`,
     });
-    return response.text;
+    return response.text || "Continue firme! Cada dia conta.";
   } catch (error) {
-    return "Continue firme! Cada dia conta.";
+    console.error("Erro na integração com Gemini (Motivação):", error);
+    return "Parabéns por mais um passo rumo à sua melhor versão!";
   }
 };
