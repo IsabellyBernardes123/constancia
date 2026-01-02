@@ -10,7 +10,7 @@ import {
   ChevronRight,
   CheckCircle2,
   X,
-  Pencil,
+  Pencil, 
   Trash2,
   Check,
   Target,
@@ -353,9 +353,14 @@ const App: React.FC = () => {
 
   const fetchSuggestions = async () => {
     setIsLoadingSuggestions(true);
-    const suggestions = await getHabitSuggestions(habits.filter(h => !h.is_archived).map(h => h.name));
-    setAiSuggestions(suggestions);
-    setIsLoadingSuggestions(false);
+    try {
+      const suggestions = await getHabitSuggestions(habits.filter(h => !h.is_archived).map(h => h.name));
+      setAiSuggestions(suggestions);
+    } catch (e) {
+      console.error("Fail to fetch AI suggestions", e);
+    } finally {
+      setIsLoadingSuggestions(false);
+    }
   };
 
   const isHabitActiveOnDate = (habit: Habit, date: Date) => {
@@ -526,7 +531,54 @@ const App: React.FC = () => {
             </div>
           </div>}
 
-        {view === 'ai' && <div className="space-y-6"><div className="bg-blue-600 rounded-[24px] p-7 text-white shadow-xl relative overflow-hidden"><Sparkles className="absolute -right-4 -top-4 opacity-20 w-32 h-32" /><h2 className="text-xl font-black mb-1">Assistente IA</h2><button onClick={fetchSuggestions} disabled={isLoadingSuggestions} className="mt-6 w-full py-3 bg-white text-blue-600 font-black text-xs rounded-xl shadow-lg">{isLoadingSuggestions ? 'GERANDO...' : 'BUSCAR NOVAS METAS'}</button></div><div className="space-y-3">{aiSuggestions.map((s, idx) => <div key={idx} className="bg-white p-5 rounded-[20px] border border-slate-100 shadow-sm flex justify-between items-center animate-in fade-in slide-in-from-bottom-2 duration-300"><div><h4 className="font-bold text-slate-800 text-sm">{s.name}</h4><p className="text-[10px] text-slate-400 mt-0.5">{s.description}</p></div><button onClick={() => { resetForm(); setNewHabitName(s.name); setIsModalOpen(true); }} className="p-2.5 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-600 hover:text-white transition-all"><Plus size={18} /></button></div>)}</div></div>}
+        {view === 'ai' && (
+          <div className="space-y-6">
+            <div className="bg-blue-600 rounded-[24px] p-7 text-white shadow-xl relative overflow-hidden">
+              <Sparkles className="absolute -right-4 -top-4 opacity-20 w-32 h-32" />
+              <h2 className="text-xl font-black mb-1">Assistente IA</h2>
+              <p className="text-blue-100 text-xs font-medium">Receba sugestões personalizadas para sua rotina.</p>
+              <button 
+                onClick={fetchSuggestions} 
+                disabled={isLoadingSuggestions} 
+                className="mt-6 w-full py-4 bg-white text-blue-600 font-black text-xs uppercase tracking-widest rounded-xl shadow-lg active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {isLoadingSuggestions ? <Loader2 className="animate-spin" size={16} /> : <Sparkles size={16} />}
+                {isLoadingSuggestions ? 'GERANDO...' : 'BUSCAR NOVAS METAS'}
+              </button>
+            </div>
+            
+            <div className="space-y-3">
+              {aiSuggestions.length === 0 && !isLoadingSuggestions && (
+                <div className="text-center py-16 bg-white rounded-[32px] border border-dashed border-slate-200 shadow-sm animate-in fade-in duration-500">
+                  <div className="bg-blue-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 text-blue-400">
+                    <Sparkles size={32} />
+                  </div>
+                  <h3 className="text-slate-800 font-black text-sm uppercase tracking-tighter">Sua IA está pronta</h3>
+                  <p className="text-slate-400 text-[11px] font-medium px-12 mt-1">Toque no botão acima para carregar dicas exclusivas para melhorar sua rotina mensal.</p>
+                </div>
+              )}
+              
+              {aiSuggestions.map((s, idx) => (
+                <div key={idx} className="bg-white p-5 rounded-[24px] border border-slate-100 shadow-sm flex justify-between items-center animate-in fade-in slide-in-from-bottom-4 duration-500" style={{ animationDelay: `${idx * 100}ms` }}>
+                  <div className="pr-4">
+                    <h4 className="font-bold text-slate-800 text-sm">{s.name}</h4>
+                    <p className="text-[10px] text-slate-400 mt-0.5 leading-relaxed">{s.description}</p>
+                    <div className="flex items-center gap-1 mt-2 text-[9px] font-black text-blue-600 uppercase">
+                      <Target size={10} />
+                      <span>{s.reason}</span>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={() => { resetForm(); setNewHabitName(s.name); setIsModalOpen(true); }} 
+                    className="shrink-0 w-12 h-12 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center hover:bg-blue-600 hover:text-white transition-all shadow-sm"
+                  >
+                    <Plus size={24} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </main>
 
       <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md bg-white/95 backdrop-blur-xl border-t border-slate-100 px-4 py-4 flex justify-between items-center z-50 rounded-t-[32px] shadow-lg">
