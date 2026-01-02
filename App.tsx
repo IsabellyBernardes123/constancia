@@ -342,13 +342,18 @@ const App: React.FC = () => {
   };
 
   const triggerCelebration = async (name: string) => {
-    const msg = await getMotivationMessage(name);
-    setMotivation(msg || "Parabéns por completar sua meta!");
-    setShowCelebration(true);
-    setTimeout(() => {
-      setShowCelebration(false);
-      setMotivation(null);
-    }, 4000);
+    try {
+      const msg = await getMotivationMessage(name);
+      setMotivation(msg || "Parabéns por completar sua meta!");
+      setShowCelebration(true);
+      setTimeout(() => {
+        setShowCelebration(false);
+        setMotivation(null);
+      }, 4000);
+    } catch (e) {
+      setMotivation("Excelente trabalho!");
+      setShowCelebration(true);
+    }
   };
 
   const fetchSuggestions = async () => {
@@ -361,11 +366,11 @@ const App: React.FC = () => {
       if (suggestions && suggestions.length > 0) {
         setAiSuggestions(suggestions);
       } else {
-        alert("A IA não retornou sugestões. Tente clicar novamente.");
+        alert("A IA respondeu, mas não encontrou sugestões agora. Tente novamente em alguns segundos.");
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error("Falha ao buscar sugestões IA:", e);
-      alert("Houve um problema de conexão com a IA. Verifique sua chave de API.");
+      alert(e.message || "Houve um problema de conexão com a IA. Verifique se a variável API_KEY está configurada corretamente no Vercel.");
     } finally {
       setIsLoadingSuggestions(false);
     }
@@ -557,18 +562,21 @@ const App: React.FC = () => {
             
             <div className="space-y-4">
               {aiSuggestions.length === 0 && !isLoadingSuggestions && (
-                <div className="text-center py-16 bg-white rounded-[32px] border border-dashed border-slate-200 shadow-sm">
+                <div className="text-center py-16 bg-white rounded-[32px] border border-dashed border-slate-200 shadow-sm animate-in fade-in duration-500">
                   <div className="bg-blue-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 text-blue-400">
                     <Sparkles size={32} className="animate-pulse" />
                   </div>
                   <h3 className="text-slate-800 font-black text-sm uppercase tracking-tighter">Sua IA está pronta</h3>
-                  <p className="text-slate-400 text-[11px] font-medium px-12 mt-1">Toque no botão acima para receber sugestões de hábitos que combinam com você.</p>
+                  <p className="text-slate-400 text-[11px] font-medium px-12 mt-1 leading-relaxed">Toque no botão acima para carregar dicas exclusivas baseadas na sua produtividade.</p>
+                  <div className="mt-4 px-6 py-2 bg-amber-50 text-amber-700 rounded-full text-[9px] font-black inline-block uppercase border border-amber-100">
+                    Dica: Configure o Vercel para liberar o poder da IA
+                  </div>
                 </div>
               )}
               
               {aiSuggestions.map((s, idx) => (
                 <div key={idx} className="bg-white p-5 rounded-[28px] border border-slate-100 shadow-sm flex items-start gap-4 animate-in fade-in slide-in-from-bottom-4 duration-500" style={{ animationDelay: `${idx * 150}ms` }}>
-                  <div className="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-600 shrink-0">
+                  <div className="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-600 shrink-0 shadow-sm">
                     <Target size={24} />
                   </div>
                   <div className="flex-1">
