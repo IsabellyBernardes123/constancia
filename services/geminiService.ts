@@ -3,10 +3,18 @@ import { GoogleGenAI, Type } from "@google/genai";
 
 export const getHabitSuggestions = async (currentHabits: string[]) => {
   try {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-    const prompt = currentHabits.length > 0 
-      ? `O usuário do aplicativo Constância+ já está rastreando estas metas: ${currentHabits.join(', ')}. Sugira 3 novas metas saudáveis e motivadoras para o mês.`
-      : "Sugira 5 metas de hábitos saudáveis e fáceis de começar para uma pessoa que quer usar o Constância+ para melhorar sua rotina mensal.";
+    const apiKey = process.env.API_KEY;
+    if (!apiKey) {
+      console.error("ERRO: API_KEY não encontrada no ambiente.");
+      return [];
+    }
+
+    const ai = new GoogleGenAI({ apiKey });
+    
+    // Prompt otimizado para ser curto e preciso
+    const prompt = `Atue como um coach de bem-estar. O usuário monitora estas metas: ${currentHabits.length > 0 ? currentHabits.join(', ') : 'nenhuma'}.
+    Sugira 5 novas metas saudáveis para o mês. 
+    Retorne APENAS um JSON no formato: [{"name": "nome", "description": "como fazer", "reason": "benefício"}].`;
 
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
@@ -28,32 +36,38 @@ export const getHabitSuggestions = async (currentHabits: string[]) => {
       }
     });
 
-    const text = response.text;
-    if (!text) return [];
-
-    // Limpeza de possíveis blocos de código markdown que a IA possa retornar
-    let jsonStr = text.trim();
-    if (jsonStr.startsWith("```")) {
-      jsonStr = jsonStr.replace(/^```json\n?/, "").replace(/\n?```$/, "");
+    const result = response.text;
+    if (!result) {
+      console.warn("IA retornou texto vazio.");
+      return [];
     }
 
-    return JSON.parse(jsonStr);
+    // Limpeza de segurança caso a IA retorne markdown
+    let cleanedJson = result.trim();
+    if (cleanedJson.startsWith("```")) {
+      cleanedJson = cleanedJson.replace(/^```json\n?/, "").replace(/\n?```$/, "");
+    }
+
+    return JSON.parse(cleanedJson);
   } catch (error) {
-    console.error("Erro na integração com Gemini (Sugestões):", error);
-    return [];
+    console.error("Erro crítico na integração Gemini (Sugestões):", error);
+    throw error; // Lança para o App.tsx tratar visualmente
   }
 };
 
 export const getMotivationMessage = async (habitName: string) => {
   try {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const apiKey = process.env.API_KEY;
+    if (!apiKey) return "Continue firme!";
+
+    const ai = new GoogleGenAI({ apiKey });
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
-      contents: `O usuário do Constância+ completou uma tarefa hoje. Dê uma frase curta, motivadora e inspiradora em português para alguém que quer manter a meta de "${habitName}".`,
+      contents: `O usuário completou a meta "${habitName}". Dê uma frase de incentivo de até 10 palavras em português.`,
     });
-    return response.text || "Continue firme! Cada dia conta.";
+    return response.text || "Parabéns por completar sua meta!";
   } catch (error) {
-    console.error("Erro na integração com Gemini (Motivação):", error);
-    return "Parabéns por mais um passo rumo à sua melhor versão!";
+    console.error("Erro Gemini (Motivação):", error);
+    return "Excelente trabalho! Continue assim.";
   }
 };
