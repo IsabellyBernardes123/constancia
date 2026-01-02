@@ -144,7 +144,7 @@ const App: React.FC = () => {
         setSession(session);
         if (session) fetchProfile(session.user.id);
       } catch (err) {
-        console.error("Auth init error:", err);
+        console.error("Erro ao iniciar sessão:", err);
       } finally {
         setLoading(false);
       }
@@ -177,7 +177,7 @@ const App: React.FC = () => {
         setUserProfile(data);
       }
     } catch (e) {
-      console.warn("Public profile not yet available.");
+      console.warn("Perfil público ainda não disponível.");
     }
   };
 
@@ -212,7 +212,7 @@ const App: React.FC = () => {
 
       setHabits(habitsWithCompletions);
     } catch (err) {
-      console.error("Load habits error:", err);
+      console.error("Erro ao carregar metas:", err);
     }
   };
 
@@ -352,12 +352,20 @@ const App: React.FC = () => {
   };
 
   const fetchSuggestions = async () => {
+    if (isLoadingSuggestions) return;
+    
     setIsLoadingSuggestions(true);
     try {
-      const suggestions = await getHabitSuggestions(habits.filter(h => !h.is_archived).map(h => h.name));
-      setAiSuggestions(suggestions);
+      const activeNames = habits.filter(h => !h.is_archived).map(h => h.name);
+      const suggestions = await getHabitSuggestions(activeNames);
+      if (suggestions && suggestions.length > 0) {
+        setAiSuggestions(suggestions);
+      } else {
+        alert("A IA não retornou sugestões. Tente clicar novamente.");
+      }
     } catch (e) {
-      console.error("Fail to fetch AI suggestions", e);
+      console.error("Falha ao buscar sugestões IA:", e);
+      alert("Houve um problema de conexão com a IA. Verifique sua chave de API.");
     } finally {
       setIsLoadingSuggestions(false);
     }
@@ -397,7 +405,7 @@ const App: React.FC = () => {
     return (
       <div className="min-h-screen bg-white flex flex-col items-center justify-center">
         <Loader2 className="animate-spin text-blue-600 mb-4" size={48} />
-        <p className="text-slate-400 font-bold text-xs uppercase tracking-widest">Carregando sua rotina...</p>
+        <p className="text-slate-400 font-bold text-xs uppercase tracking-widest">Sincronizando rotina...</p>
       </div>
     );
   }
@@ -411,7 +419,7 @@ const App: React.FC = () => {
           <div className="flex flex-col items-center mb-10">
             <Logo size={80} />
             <h1 className="text-3xl font-black bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent mt-4 tracking-tighter">Constância+</h1>
-            <p className="text-slate-400 text-xs font-bold uppercase tracking-[0.2em] mt-1">Nuvem Sincronizada</p>
+            <p className="text-slate-400 text-xs font-bold uppercase tracking-[0.2em] mt-1">Sua melhor versão mensal</p>
           </div>
           <form onSubmit={handleAuth} className="space-y-4">
             {authMode === 'signup' && (
@@ -536,43 +544,46 @@ const App: React.FC = () => {
             <div className="bg-blue-600 rounded-[24px] p-7 text-white shadow-xl relative overflow-hidden">
               <Sparkles className="absolute -right-4 -top-4 opacity-20 w-32 h-32" />
               <h2 className="text-xl font-black mb-1">Assistente IA</h2>
-              <p className="text-blue-100 text-xs font-medium">Receba sugestões personalizadas para sua rotina.</p>
+              <p className="text-blue-100 text-xs font-medium">Novas ideias baseadas na sua rotina atual.</p>
               <button 
                 onClick={fetchSuggestions} 
                 disabled={isLoadingSuggestions} 
-                className="mt-6 w-full py-4 bg-white text-blue-600 font-black text-xs uppercase tracking-widest rounded-xl shadow-lg active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2"
+                className="mt-6 w-full py-4 bg-white text-blue-600 font-black text-xs uppercase tracking-widest rounded-xl shadow-lg active:scale-95 disabled:opacity-50 flex items-center justify-center gap-3 transition-all"
               >
-                {isLoadingSuggestions ? <Loader2 className="animate-spin" size={16} /> : <Sparkles size={16} />}
-                {isLoadingSuggestions ? 'GERANDO...' : 'BUSCAR NOVAS METAS'}
+                {isLoadingSuggestions ? <Loader2 className="animate-spin" size={18} /> : <Sparkles size={18} />}
+                {isLoadingSuggestions ? 'PROCESSANDO...' : 'GERAR SUGESTÕES AGORA'}
               </button>
             </div>
             
-            <div className="space-y-3">
+            <div className="space-y-4">
               {aiSuggestions.length === 0 && !isLoadingSuggestions && (
-                <div className="text-center py-16 bg-white rounded-[32px] border border-dashed border-slate-200 shadow-sm animate-in fade-in duration-500">
+                <div className="text-center py-16 bg-white rounded-[32px] border border-dashed border-slate-200 shadow-sm">
                   <div className="bg-blue-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 text-blue-400">
-                    <Sparkles size={32} />
+                    <Sparkles size={32} className="animate-pulse" />
                   </div>
                   <h3 className="text-slate-800 font-black text-sm uppercase tracking-tighter">Sua IA está pronta</h3>
-                  <p className="text-slate-400 text-[11px] font-medium px-12 mt-1">Toque no botão acima para carregar dicas exclusivas para melhorar sua rotina mensal.</p>
+                  <p className="text-slate-400 text-[11px] font-medium px-12 mt-1">Toque no botão acima para receber sugestões de hábitos que combinam com você.</p>
                 </div>
               )}
               
               {aiSuggestions.map((s, idx) => (
-                <div key={idx} className="bg-white p-5 rounded-[24px] border border-slate-100 shadow-sm flex justify-between items-center animate-in fade-in slide-in-from-bottom-4 duration-500" style={{ animationDelay: `${idx * 100}ms` }}>
-                  <div className="pr-4">
-                    <h4 className="font-bold text-slate-800 text-sm">{s.name}</h4>
-                    <p className="text-[10px] text-slate-400 mt-0.5 leading-relaxed">{s.description}</p>
-                    <div className="flex items-center gap-1 mt-2 text-[9px] font-black text-blue-600 uppercase">
-                      <Target size={10} />
+                <div key={idx} className="bg-white p-5 rounded-[28px] border border-slate-100 shadow-sm flex items-start gap-4 animate-in fade-in slide-in-from-bottom-4 duration-500" style={{ animationDelay: `${idx * 150}ms` }}>
+                  <div className="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-600 shrink-0">
+                    <Target size={24} />
+                  </div>
+                  <div className="flex-1">
+                    <h4 className="font-black text-slate-800 text-sm leading-tight">{s.name}</h4>
+                    <p className="text-[10px] text-slate-500 mt-1 leading-relaxed font-medium">{s.description}</p>
+                    <div className="mt-3 inline-flex items-center gap-1.5 bg-blue-50/50 px-3 py-1 rounded-full text-[9px] font-black text-blue-600 uppercase">
+                      <Sparkles size={10} />
                       <span>{s.reason}</span>
                     </div>
                   </div>
                   <button 
                     onClick={() => { resetForm(); setNewHabitName(s.name); setIsModalOpen(true); }} 
-                    className="shrink-0 w-12 h-12 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center hover:bg-blue-600 hover:text-white transition-all shadow-sm"
+                    className="shrink-0 w-10 h-10 bg-slate-900 text-white rounded-xl flex items-center justify-center active:scale-90 transition-all shadow-md"
                   >
-                    <Plus size={24} />
+                    <Plus size={20} />
                   </button>
                 </div>
               ))}
